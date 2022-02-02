@@ -1,22 +1,14 @@
-/*
- * EnrollmentState.java
- */
+package com.futronic.SDKHelper
 
-package com.futronic.SDKHelper;
-
-/**
- * The process states constants
- */
-public enum EnrollmentState
-{
+enum class EnrollmentState {
     /**
-     * The "ready to enrollment" state. class is ready to receive a base 
+     * The "ready to enrollment" state. class is ready to receive a base
      * template and start the identification operation
      */
     ready_to_process,
 
     /**
-     * Class is receiving the base template or the enrollment operation is 
+     * Class is receiving the base template or the enrollment operation is
      * starting
      */
     process_in_progress,
@@ -30,5 +22,4 @@ public enum EnrollmentState
      * The identification process is starting for this class
      */
     continue_in_progress
-    
 }

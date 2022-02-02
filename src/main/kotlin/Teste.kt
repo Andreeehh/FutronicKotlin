@@ -18,10 +18,10 @@ fun teste () {
         Button(onClick = {
             m_Operation = FutronicEnrollment()
             m_Operation.fakeDetection = true
-            m_Operation.ffdControl = true
-            m_Operation.farn = 166
+            m_Operation.fFDControl = true
+            m_Operation.fARN = 166
             m_Operation.fastMode = true
-            (m_Operation as FutronicEnrollment).miotControlOff = true
+            (m_Operation as FutronicEnrollment).mIOTControlOff = true
             (m_Operation as FutronicEnrollment).maxModels = 4
             m_Operation.version = VersionCompatible.ftr_version_current
         }) {

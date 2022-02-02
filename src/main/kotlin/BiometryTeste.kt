@@ -9,9 +9,9 @@ import java.awt.Button
 import java.awt.image.BufferedImage
 
 class BiometryTeste:IEnrollmentCallBack, IIdentificationCallBack {
-    var textButton = mutableStateOf("Hello" )
-    var m_Operation: FutronicSdkBase = TODO()
-    var template: ByteArray
+    var textButton = "Olá"
+    lateinit var m_Operation: FutronicSdkBase
+    lateinit var template: ByteArray
 
     @Composable
     @Preview
@@ -21,35 +21,35 @@ class BiometryTeste:IEnrollmentCallBack, IIdentificationCallBack {
             Button(onClick = {
                 m_Operation = FutronicEnrollment()
                 m_Operation.fakeDetection = true
-                m_Operation.ffdControl = true
-                m_Operation.farn = 166
+                m_Operation.fFDControl = true
+                m_Operation.fARN = 166
                 m_Operation.fastMode = true
-                (m_Operation as FutronicEnrollment).miotControlOff = true
+                (m_Operation as FutronicEnrollment).mIOTControlOff = true
                 (m_Operation as FutronicEnrollment).maxModels = 4
                 m_Operation.version = VersionCompatible.ftr_version_current
                 (m_Operation as FutronicEnrollment).Enrollment(this)
             })
             {
-                Text(textButton.toString())
+                Text(textButton)
             }
         }
     }
 
 
     override fun OnPutOn(Progress: FTR_PROGRESS?) {
-        textButton = mutableStateOf("Put finger into device, please ..." )
+        textButton = "Put finger into device, please ..."
     }
 
     override fun OnTakeOff(Progress: FTR_PROGRESS?) {
-        textButton = mutableStateOf("Take off finger from device, please ..." )
+        textButton = "Take off finger from device, please ..."
     }
 
     override fun UpdateScreenImage(Bitmap: BufferedImage?) {
-        textButton = mutableStateOf("atualizando imagem")
+        textButton = "atualizando imagem"
     }
 
     override fun OnFakeSource(Progress: FTR_PROGRESS?): Boolean {
-        textButton = mutableStateOf("Fake source detected. Do you want continue process?")
+        textButton = "Fake source detected. Do you want continue process?"
         return false
     }
 
@@ -63,14 +63,14 @@ class BiometryTeste:IEnrollmentCallBack, IIdentificationCallBack {
     override fun OnEnrollmentComplete(bSuccess: Boolean, nResult: Int) {
         if (bSuccess) {
             if ((m_Operation as FutronicEnrollment).quality < 5) {
-                textButton = mutableStateOf("Qualidade capturada muito baixa, tente novamente.")
-                textButton = mutableStateOf("Qualidade: " + (m_Operation as FutronicEnrollment).quality)
+                textButton = "Qualidade capturada muito baixa, tente novamente."
+                textButton = "Qualidade: " + (m_Operation as FutronicEnrollment).quality
                 return
             }
-            this.template = (m_Operation as FutronicEnrollment).template
-            textButton = mutableStateOf("Sucesso. Qualidade da digita: "+ (m_Operation as FutronicEnrollment).quality)
+            this.template = (m_Operation as FutronicEnrollment).template!!
+            textButton = "Sucesso. Qualidade da digita: "+ (m_Operation as FutronicEnrollment).quality
         } else {
-            textButton = mutableStateOf(FutronicSdkBase.SdkRetCode2Message(nResult))
+            textButton = FutronicSdkBase.SdkRetCode2Message(nResult)
         }
     }
 
