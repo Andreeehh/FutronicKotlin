@@ -17,6 +17,7 @@ repositories {
 }
 
 dependencies {
+    implementation("mysql:mysql-connector-java:5.1.37", )
     implementation(compose.desktop.currentOs)
 }
 
