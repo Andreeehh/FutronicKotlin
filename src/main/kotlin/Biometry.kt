@@ -27,7 +27,7 @@ fun Biometry () {
     var clientList = clientDBI.getList()
     val clientListFull = clientList
     var clientId: Int = 0
-    val delay: Long = 800
+    var value by remember { mutableStateOf("") }
     class BiometryFun:IEnrollmentCallBack, IIdentificationCallBack {
         var textButton = "OlÃ¡"
         lateinit var template: ByteArray
@@ -57,6 +57,7 @@ fun Biometry () {
                 if (nResult == FutronicSdkBase.RETCODE_OK) {
                     if (result.m_Index != -1) {
                         name = "Client ID: " + candidates!![result.m_Index]!!.clientId
+                        value = clientDBI.getSingle("id", candidates!![result.m_Index]!!.clientId)!!.name.toString()
                     } else {
                         name = "Cliente não encontrado"
                     }
@@ -89,7 +90,6 @@ fun Biometry () {
                 .align(Alignment.CenterHorizontally)
                 .offset(0.dp, 200.dp)
                 .wrapContentSize(Alignment.TopStart)) {
-                var value by remember { mutableStateOf("") }
                 TextField(
                     value = value,
                     onValueChange = {
@@ -131,6 +131,7 @@ fun Biometry () {
                                     expanded = true
                                     true
                                 } else {
+                                    clientList = clientListFull
                                     expanded = true
                                     true
                                 }
