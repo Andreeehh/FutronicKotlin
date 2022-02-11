@@ -1,23 +1,28 @@
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.ExperimentalKeyInput
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.keyInputFilter
 import androidx.compose.ui.unit.dp
 import com.futronic.SDKHelper.*
 import domain.Client
+import org.jetbrains.skija.Color
 import java.awt.image.BufferedImage
 import java.util.*
 import databaseinterface.DBI07 as clientDBI
+import databaseinterface.DBICard as cardDBI
 import kotlin.concurrent.schedule
+import domain.Card
+import cardInterface as cardInterface
 
-@ExperimentalComposeUiApi
+@ExperimentalKeyInput
 @Composable
 fun Biometry () {
     lateinit var m_Operation: FutronicSdkBase
@@ -26,11 +31,9 @@ fun Biometry () {
     val clientDBI = clientDBI()
     var clientList = clientDBI.getList()
     val clientListFull = clientList
-    var clientId: Int = 0
+    var clientId = 0
     var value by remember { mutableStateOf("") }
     class BiometryFun:IEnrollmentCallBack, IIdentificationCallBack {
-        var textButton = "OlÃ¡"
-        lateinit var template: ByteArray
 
         override fun OnPutOn(Progress: FTR_PROGRESS?) {
             name = "Put finger into device, please ..."
@@ -116,8 +119,8 @@ fun Biometry () {
                     label = { Text("Cliente")},
                     placeholder = { Text("Aperte enter ou para seta para baixo para abrir a lista")},
                     modifier = Modifier
-                        .onKeyEvent {
-                            if ( it.key == Key.Enter || it.key == Key.DirectionDown) {
+                        .keyInputFilter {
+                            if ( it.key == Key.Enter || it.key == Key.DPadDown) {
                                 if (!(value == "")){
                                     if(value[0].toString().matches(regex = "^\\(".toRegex())) {
                                         clientList = clientDBI.getFiltredList(2, value)
@@ -142,12 +145,18 @@ fun Biometry () {
                     singleLine = true
                 )
                 IconButton(onClick = { expanded = true }, modifier = Modifier.offset(350.dp,0.dp)) {
-                    Icon(Icons.Default.AccountCircle ,contentDescription = "Localized description")
+                    Icon(Icons.Default.AccountCircle)
                 }
                 DropdownMenu(
                     expanded = expanded,
                     onDismissRequest = { expanded = false },
-                    focusable = false
+                    toggle = {
+                        Text(
+                            text = "",
+                            modifier = Modifier.clickable { expanded = true }
+                                .clickable(onClick = { expanded = true })
+                        )
+                    }
                 ) {
                     clientList!!.forEach { client ->
                         DropdownMenuItem(
@@ -155,6 +164,7 @@ fun Biometry () {
                                 clientId = client.id
                                 name = "CLiente ${client.name} selecionado, ID: ${client.id}"
                                 expanded = false
+                                value = client.name.toString()
                             }
                         ) {
                             Text(text = client.name.toString() + client.cellPhone.toString())
