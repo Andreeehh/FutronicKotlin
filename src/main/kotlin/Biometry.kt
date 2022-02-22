@@ -38,6 +38,7 @@ fun biometry(user: MutableState<User?>, idTableCard: MutableState<String>) {
     var clientName by remember { mutableStateOf("") }
     var clientTell by remember { mutableStateOf("") }
     var clientDoc by remember { mutableStateOf("") }
+    var foundClient by remember { mutableStateOf(true) }
 
     class BiometryFun : IEnrollmentCallBack, IIdentificationCallBack {
 
@@ -65,9 +66,11 @@ fun biometry(user: MutableState<User?>, idTableCard: MutableState<String>) {
                 var nResult = (m_Operation as FutronicIdentification).Identification(candidates, result)
                 if (nResult == FutronicSdkBase.RETCODE_OK) {
                     if (result.m_Index != -1) {
-                        name = "Client ID: " + candidates!![result.m_Index]!!.clientId
                         clientNameSale = clientDBI.getSingle("id", candidates!![result.m_Index]!!.clientId)!!.name.toString()
+                        name = "ID Cliente: " + candidates!![result.m_Index]!!.clientId + "\nNome Cliente: $clientNameSale"
+                        foundClient = true
                     } else {
+                        foundClient = false
                         name = "Cliente não encontrado"
                     }
                 }
@@ -179,6 +182,7 @@ fun biometry(user: MutableState<User?>, idTableCard: MutableState<String>) {
         Column(modifier = Modifier.width(250.dp)) {
             Button(
                 onClick = {
+                    foundClient = true
                     abertura = false
                     name = ""
                 },
@@ -400,7 +404,6 @@ fun biometry(user: MutableState<User?>, idTableCard: MutableState<String>) {
                     .offset(0.dp, 600.dp)
             )
             if (abertura){
-
                 Button(
                     onClick = {
                         try {
@@ -440,6 +443,10 @@ fun biometry(user: MutableState<User?>, idTableCard: MutableState<String>) {
             } else {
                 Button(
                     onClick = {
+                        if (clientId2 != 0){
+                            name = "Cliente já está cadastrado"
+                            return@Button
+                        }
                         var client = Client()
                         client.id = clientDBI.getUpdateNextId()
                         client.name = clientName
@@ -459,32 +466,56 @@ fun biometry(user: MutableState<User?>, idTableCard: MutableState<String>) {
                 {
                     Text("Cadastrar Cliente")
                 }
-                Button(
-                    onClick = {
-                        if (clientId2 == 0) {
-                            name = "Cadastre/Selecione um cliente"
-                        } else {
+                if (!foundClient){
+                    Button(
+                        onClick = {
+                            if (clientId2 == 0) {
+                                name = "Cadastre/Selecione um cliente"
+                            } else {
+                                try {
+                                    m_Operation = FutronicEnrollment()
+                                    m_Operation.fakeDetection = true
+                                    m_Operation.fFDControl = true
+                                    m_Operation.fARN = 166
+                                    m_Operation.fastMode = true
+                                    (m_Operation as FutronicEnrollment).mIOTControlOff = true
+                                    (m_Operation as FutronicEnrollment).maxModels = 4
+                                    m_Operation.version = VersionCompatible.ftr_version_current
+                                } catch (futronicException: FutronicException) {
+                                    futronicException.printStackTrace()
+                                }
+                                (m_Operation as FutronicEnrollment).Enrollment(BiometryFun())
+                            }
+                        }, modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .offset(0.dp, 600.dp)
+                    )
+                    {
+                        Text("Cadastrar Biometria")
+                    }
+                } else {
+                    Button(
+                        onClick = {
                             try {
-                                m_Operation = FutronicEnrollment()
+                                m_Operation = FutronicIdentification()
                                 m_Operation.fakeDetection = true
                                 m_Operation.fFDControl = true
                                 m_Operation.fARN = 166
-                                m_Operation.fastMode = true
-                                (m_Operation as FutronicEnrollment).mIOTControlOff = true
-                                (m_Operation as FutronicEnrollment).maxModels = 4
+                                m_Operation.fastMode = false
                                 m_Operation.version = VersionCompatible.ftr_version_current
                             } catch (futronicException: FutronicException) {
                                 futronicException.printStackTrace()
                             }
-                            (m_Operation as FutronicEnrollment).Enrollment(BiometryFun())
-                        }
-                    }, modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .offset(0.dp, 600.dp)
-                )
-                {
-                    Text("Cadastrar Biometria")
+                            (m_Operation as FutronicIdentification).GetBaseTemplate(BiometryFun())
+                        }, modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .offset(0.dp, 600.dp)
+                    )
+                    {
+                        Text("Verificar Biometria")
+                    }
                 }
+
             }
         }
 
