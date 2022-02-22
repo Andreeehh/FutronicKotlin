@@ -1,6 +1,7 @@
 package databaseinterface
 
 import auxiliary.CustomBoolean
+import auxiliary.CustomDate
 import domain.Card
 import java.sql.Connection
 import java.sql.DriverManager
@@ -50,6 +51,29 @@ class DBICard {
             ex.printStackTrace()
         }
         return card
+    }
+
+    fun setCardInUse(cardId: Int, saleId: Int, hallTableId: Int) {
+        Class.forName("com.mysql.jdbc.Driver")
+        con = DriverManager.getConnection(banco,"root","1234")
+        val stmt =
+            "insert into card(id, in_use, sale_id, production_print, delivered, opening_time, last_item_time, has_items, hall_table_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        try {
+            con!!.prepareStatement(stmt).use { ps ->
+                ps.setInt(1, cardId)
+                ps.setInt(2, 1)
+                ps.setInt(3, saleId)
+                ps.setInt(4, 0)
+                ps.setInt(5, 0)
+                ps.setString(6, CustomDate().timeString)
+                ps.setString(7, CustomDate().timeString)
+                ps.setInt(8, 0)
+                ps.setInt(9, hallTableId)
+                ps.execute()
+            }
+        } catch (ex: SQLException) {
+            ex.printStackTrace()
+        }
     }
 
     private fun auxLoad(card: Card, resultSet: ResultSet) {

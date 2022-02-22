@@ -2,6 +2,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.runtime.*
@@ -13,74 +14,73 @@ import domain.HallTable
 import java.util.ArrayList
 
 @Composable
-fun hallTableInterface () {
+fun hallTableInterface (idCard: MutableState<String>, navItemState: MutableState<NavType>) {
     val hallTableDBI = DBIHallTable()
     var hallTableList = hallTableDBI.getHallTableList()
     var aux = 0
     var i = 1
-    fun colorCard (hallTable: ArrayList<HallTable>, i: Int): androidx.compose.ui.graphics.Color {
-        if (hallTable[aux].id == i){
-            if (hallTable[aux].isInUse){
-                if ((hallTable.size - 1) != aux){
-                    aux++
-                }
-                return androidx.compose.ui.graphics.Color.Yellow
-            }
-            else
-                return androidx.compose.ui.graphics.Color.Green
-        } else {
-            return androidx.compose.ui.graphics.Color.Green
-        }
-    }
-    fun clickOpen () {
-        aux = 0
-        i = 0
-        return
-    }
-    fun clickClosed () {
-        aux = 0
-        i = 0
-        return
-    }
+    var name by remember { mutableStateOf("Selecione uma Mesa") }
 
-    fun defineFun (card: ArrayList<HallTable>, i: Int) {
-        if (card[aux].id == i){
-            if (card[aux].isInUse){
-                if ((card.size - 1) != aux){
-                    aux++
-                }
-                return clickClosed()
+    @Composable()
+    fun createIconButton(id: Int, offsetX: Int, offsetY: Int){
+        for (table in hallTableList!!){
+            if (table.id != id){
+                continue
             }
-            else
-                return clickOpen()
-        } else {
-            return clickOpen()
+            if (table.isInUse){
+                IconButton(onClick = {
+                    name = "Mesa em uso"
+                    return@IconButton
+                }, modifier = Modifier.offset(offsetX.dp,offsetY.dp)) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        tint = androidx.compose.ui.graphics.Color.Red)
+                }
+                return
+            }
+        }
+        IconButton(onClick = {
+            idCard.value = id.toString()
+            navItemState.value = NavType.HOME
+        }, modifier = Modifier.offset(offsetX.dp,offsetY.dp)) {
+            Icon(
+                Icons.Default.CheckCircle,
+                tint = androidx.compose.ui.graphics.Color.Green)
         }
     }
     MaterialTheme {
         var offsetX = 0
         var offsetY = 0
+        var offsetXText = 0
         Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier
-                .offset(0.dp, 0.dp)
+                .offset(0.dp, 50.dp)
                 .wrapContentSize(Alignment.TopStart)) {
                 while (i<=50){
-                    IconButton(onClick = { return@IconButton }, modifier = Modifier.offset(offsetX.dp,offsetY.dp)) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            tint = colorCard(hallTableList!!,i))
+                    createIconButton(i, offsetX, offsetY)
+                    offsetXText = if (i < 10){
+                        offsetX + 20
+                    } else {
+                        if (i < 100){
+                            offsetX + 15
+                        } else {
+                            offsetX + 10
+                        }
                     }
-                    //buttons
-                    offsetX += 25
+                    Text(i.toString(), modifier = Modifier.offset(offsetXText.dp,(offsetY + 30).dp))
+                    offsetX += 38
                     if (i%30 == 0) {
-                        offsetY += 25
+                        offsetY += 70
                         offsetX = 0
                     }
                     i++
                 }
-                i = 0
+                i = 1
                 aux = 0
             }
+            Text(name, modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .offset(0.dp, 600.dp))
         }
     }
 }

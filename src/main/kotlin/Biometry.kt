@@ -1,30 +1,31 @@
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.ExperimentalKeyInput
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.keyInputFilter
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import auxiliary.CustomDate
 import com.futronic.SDKHelper.*
-import domain.Client
-import org.jetbrains.skija.Color
+import databaseinterface.DBIHallTable
+import databaseinterface.DBISale
+import domain.*
+import domain.State
 import java.awt.image.BufferedImage
 import java.util.*
-import databaseinterface.DBI07 as clientDBI
-import databaseinterface.DBICard as cardDBI
 import kotlin.concurrent.schedule
-import domain.Card
-import cardInterface as cardInterface
+import databaseinterface.DBI07 as clientDBI
 
 @ExperimentalKeyInput
 @Composable
-fun Biometry () {
+fun biometry(user: MutableState<User?>, idTableCard: MutableState<String>) {
     lateinit var m_Operation: FutronicSdkBase
     lateinit var template: ByteArray
     var name by remember { mutableStateOf("") }
@@ -32,8 +33,13 @@ fun Biometry () {
     var clientList = clientDBI.getList()
     val clientListFull = clientList
     var clientId = 0
-    var value by remember { mutableStateOf("") }
-    class BiometryFun:IEnrollmentCallBack, IIdentificationCallBack {
+    var clientId2 = 0
+    var clientNameSale by remember { mutableStateOf("") }
+    var clientName by remember { mutableStateOf("") }
+    var clientTell by remember { mutableStateOf("") }
+    var clientDoc by remember { mutableStateOf("") }
+
+    class BiometryFun : IEnrollmentCallBack, IIdentificationCallBack {
 
         override fun OnPutOn(Progress: FTR_PROGRESS?) {
             name = "Put finger into device, please ..."
@@ -53,14 +59,14 @@ fun Biometry () {
         }
 
         override fun OnGetBaseTemplateComplete(bSuccess: Boolean, nResult: Int) {
-            if (bSuccess){
-                var result: FtrIdentifyResult = FtrIdentifyResult()
+            if (bSuccess) {
+                var result = FtrIdentifyResult()
                 var candidates: Array<FtrIdentifyRecord?>? = clientDBI.getAllFingerprints()
                 var nResult = (m_Operation as FutronicIdentification).Identification(candidates, result)
                 if (nResult == FutronicSdkBase.RETCODE_OK) {
                     if (result.m_Index != -1) {
                         name = "Client ID: " + candidates!![result.m_Index]!!.clientId
-                        value = clientDBI.getSingle("id", candidates!![result.m_Index]!!.clientId)!!.name.toString()
+                        clientNameSale = clientDBI.getSingle("id", candidates!![result.m_Index]!!.clientId)!!.name.toString()
                     } else {
                         name = "Cliente não encontrado"
                     }
@@ -71,12 +77,11 @@ fun Biometry () {
         override fun OnEnrollmentComplete(bSuccess: Boolean, nResult: Int) {
             if (bSuccess) {
                 if ((m_Operation as FutronicEnrollment).quality < 5) {
-                    name = "Qualidade capturada muito baixa, tente novamente."
-                    name = "Qualidade: " + (m_Operation as FutronicEnrollment).quality
+                    name = "Qualidade capturada muito baixa, tente novamente.\nQualidade: " + (m_Operation as FutronicEnrollment).quality
                     return
                 }
                 template = (m_Operation as FutronicEnrollment).template!!
-                if (clientDBI.saveClientFingerprint(clientId,template)){
+                if (clientDBI.saveClientFingerprint(clientId2,template)){
                     name = "Sucesso. Qualidade da digita: "+ (m_Operation as FutronicEnrollment).quality
                 }
             } else {
@@ -86,138 +91,400 @@ fun Biometry () {
 
     }
 
+    fun writeFields(sale: Sale) {
+        sale.subClient = SubClient()
+        sale.openingDate = CustomDate().toString()
+        sale.openingTime = CustomDate().timeString
+        if (sale.type != 2 && !sale.isIfoodIndoor) {
+            sale.hallTableId = 0
+        }
+        if (sale.type != 3) {
+            sale.cardId = 0
+        }
+        if (sale.subClient == null) {
+            sale.subClient = SubClient()
+        }
+        if (sale.client == null) {
+            sale.client = Client()
+        }
+        if (sale.user == null) {
+            sale.user = user.value
+        }
+        if (sale.discount > 0 && sale.webSaleType == 0) {
+            sale.user = user.value
+        }
+        if (sale.employee == null) {
+            sale.employee = Employee()
+        }
+        if (sale.employee2 == null) {
+            sale.employee2 = Employee()
+        }
+        if (sale.neighborhood == null) {
+            sale.neighborhood = Neighborhood()
+        }
+        if (sale.company == null) {
+            sale.company = Company()
+        }
+        if (sale.type != 1 && sale.type != 4 && !sale.isDelivered) {
+            sale.deliverDate = CustomDate().toString()
+            sale.deliverTime = CustomDate().timeString
+        }
+        sale.isPendentItem = false
+        if (sale.hasPendentItem()) {
+            sale.isPendentItem = true
+        }
+        sale.isPendent = false
+        if (sale.pendentValue > 0) {
+            sale.isPendent = true
+        }
+        if (!sale.isPayed) {
+            sale.paymentDate = "01/01/1990"
+            sale.paymentTime = "12:00"
+        }
+    }
+
+    fun openCardHallTable(type: Int) {
+        if (DBIHallTable().getSingleHallTable(idTableCard.value.toInt())!!.isInUse) {
+            name = if (type == 1)
+                "Mesa em uso"
+            else
+                "Comanda em uso"
+            return
+        }
+        var id = DBISale().getUpdateNextId()
+        val newSale = Sale()
+        newSale.id = id
+        newSale.type = 2
+        newSale.hallTableId = idTableCard.value.toInt()
+        newSale.client = clientDBI.getSingle("id", clientId)
+        newSale.client!!.id = clientId
+        writeFields(newSale)
+        if (DBISale().add(newSale, 0)) {
+            name = if (type == 1)
+                "Mesa aberta"
+            else
+                "Comanda aberta"
+            DBIHallTable().setHallTableInUse(idTableCard.value.toInt(), newSale.id)
+        } else {
+            name = if (type == 1)
+                "Problema ao abrir mesa"
+            else
+                "Problema ao abrir comanda"
+        }
+    }
+
     MaterialTheme {
         var expanded by remember { mutableStateOf(false) }
-        Column(modifier = Modifier.fillMaxSize()) {
-            Box(modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .offset(0.dp, 200.dp)
-                .wrapContentSize(Alignment.TopStart)) {
-                TextField(
-                    value = value,
-                    onValueChange = {
-                        value = it
-                        Timer().schedule(800){
-                            if (!(value == "")){
-                                if(value[0].toString().matches(regex = "^\\(".toRegex())) {
-                                    clientList = clientDBI.getFiltredList(2, value)
-                                } else {
-                                    if (value.matches(regex = "^[0-9]+".toRegex())) {
-                                        clientList = clientDBI.getFiltredList(3, value)
-                                    } else{
-                                        clientList = clientDBI.getFiltredList(1, value)
-                                    }
-                                }
-                                expanded = true
-                                true
-                            } else {
-                                expanded = false
-                                clientList = clientListFull
-                            }
-                        }
-                        },
-                    label = { Text("Cliente")},
-                    placeholder = { Text("Aperte enter ou para seta para baixo para abrir a lista")},
-                    modifier = Modifier
-                        .keyInputFilter {
-                            if ( it.key == Key.Enter || it.key == Key.DPadDown) {
-                                if (!(value == "")){
-                                    if(value[0].toString().matches(regex = "^\\(".toRegex())) {
-                                        clientList = clientDBI.getFiltredList(2, value)
+        var abertura by remember { mutableStateOf(true) }
+        Column(modifier = Modifier.width(250.dp)) {
+            Button(
+                onClick = {
+                    abertura = false
+                    name = ""
+                },
+                modifier = Modifier.offset(30.dp,50.dp)
+            )
+            {
+                Text("Cadastrar Cliente")
+            }
+            Button(
+                onClick = {
+                    abertura = true
+                    name = ""
+                    clientName = ""
+                    clientTell = ""
+                    clientDoc = ""
+                    clientId2 = 0
+                },
+                modifier = Modifier.offset(30.dp,80.dp)
+            )
+            {
+                Text("Abertura mesa/comanda")
+            }
+        }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .offset(0.dp, 200.dp)
+                    .wrapContentSize(Alignment.TopStart)
+            ) {
+                if (abertura) {
+                    TextField(
+                        value = clientNameSale,
+                        onValueChange = {
+                            clientNameSale = it
+                            Timer().schedule(800) {
+                                if (clientNameSale != "") {
+                                    clientList = if (clientNameSale[0].toString().matches(regex = "^\\(".toRegex())) {
+                                        clientDBI.getFiltredList(2, clientNameSale)
                                     } else {
-                                        if (value.matches(regex = "^[0-9]+".toRegex())) {
-                                                clientList = clientDBI.getFiltredList(3, value)
-                                            } else{
-                                            clientList = clientDBI.getFiltredList(1, value)
+                                        if (clientNameSale.matches(regex = "^[0-9]+".toRegex())) {
+                                            clientDBI.getFiltredList(3, clientNameSale)
+                                        } else {
+                                            clientDBI.getFiltredList(1, clientNameSale)
                                         }
                                     }
                                     expanded = true
                                     true
                                 } else {
+                                    expanded = false
                                     clientList = clientListFull
-                                    expanded = true
-                                    true
                                 }
-                            } else {
-                                false
                             }
                         },
-                    singleLine = true
-                )
-                IconButton(onClick = { expanded = true }, modifier = Modifier.offset(350.dp,0.dp)) {
-                    Icon(Icons.Default.AccountCircle)
-                }
-                DropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    toggle = {
-                        Text(
-                            text = "",
-                            modifier = Modifier.clickable { expanded = true }
-                                .clickable(onClick = { expanded = true })
-                        )
+                        label = { Text("Cliente") },
+                        placeholder = { Text("Aperte enter para abrir a lista") },
+                        modifier = Modifier
+                            .keyInputFilter {
+                                if (it.key == Key.Enter) {
+                                    if (clientNameSale != "") {
+                                        clientList = if (clientNameSale[0].toString().matches(regex = "^\\(".toRegex())) {
+                                            clientDBI.getFiltredList(2, clientNameSale)
+                                        } else {
+                                            if (clientNameSale.matches(regex = "^[0-9]+".toRegex())) {
+                                                clientDBI.getFiltredList(3, clientNameSale)
+                                            } else {
+                                                clientDBI.getFiltredList(1, clientNameSale)
+                                            }
+                                        }
+                                        expanded = true
+                                        true
+                                    } else {
+                                        clientList = clientListFull
+                                        expanded = true
+                                        true
+                                    }
+                                } else {
+                                    false
+                                }
+                            },
+                        singleLine = true
+                    )
+                    IconButton(onClick = { expanded = true }, modifier = Modifier.offset(350.dp, 0.dp)) {
+                        Icon(Icons.Default.AccountCircle)
                     }
-                ) {
-                    clientList!!.forEach { client ->
-                        DropdownMenuItem(
-                            onClick = {
-                                clientId = client.id
-                                name = "CLiente ${client.name} selecionado, ID: ${client.id}"
-                                expanded = false
-                                value = client.name.toString()
+
+                    TextField(
+                        value = idTableCard.value,
+                        onValueChange = { idTableCard.value = it },
+                        label = { Text("Nº Mesa/Comanda") },
+                        placeholder = { Text("insira o Nº Mesa/Comanda") },
+                        modifier = Modifier.offset(0.dp, 70.dp),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        toggle = {
+                            Text(
+                                text = "",
+                                modifier = Modifier.clickable { expanded = true }
+                                    .clickable(onClick = { expanded = true })
+                            )
+                        }
+                    ) {
+                        clientList!!.forEach { client ->
+                            DropdownMenuItem(
+                                onClick = {
+                                    clientId = client.id
+                                    name = "CLiente ${client.name} selecionado, ID: ${client.id}"
+                                    expanded = false
+                                    clientNameSale = client.name.toString()
+                                }
+                            ) {
+                                Text(text = client.name.toString() + client.cellPhone.toString())
                             }
-                        ) {
-                            Text(text = client.name.toString() + client.cellPhone.toString())
                         }
                     }
-                }
-            }
-
-            Button(onClick = {
-                if (clientId == 0){
-                    name = "Selecione um cliente"
-                }else {
-                    try {
-
-                        m_Operation = FutronicEnrollment()
-                        m_Operation.fakeDetection = true
-                        m_Operation.fFDControl = true
-                        m_Operation.fARN = 166
-                        m_Operation.fastMode = true
-                        (m_Operation as FutronicEnrollment).mIOTControlOff = true
-                        (m_Operation as FutronicEnrollment).maxModels = 4
-                        m_Operation.version = VersionCompatible.ftr_version_current
-                    }catch (futronicException: FutronicException){
-                        futronicException.printStackTrace()
+                } else {
+                    TextField(
+                        value = clientName,
+                        onValueChange = {
+                            clientName = it
+                            Timer().schedule(800) {
+                                if (!(clientName == "")) {
+                                    if (clientName[0].toString().matches(regex = "^\\(".toRegex())) {
+                                        clientList = clientDBI.getFiltredList(2, clientName)
+                                    } else {
+                                        if (clientName.matches(regex = "^[0-9]+".toRegex())) {
+                                            clientList = clientDBI.getFiltredList(3, clientName)
+                                        } else {
+                                            clientList = clientDBI.getFiltredList(1, clientName)
+                                        }
+                                    }
+                                    expanded = true
+                                    true
+                                } else {
+                                    expanded = false
+                                    clientList = clientListFull
+                                }
+                            }
+                        },
+                        label = { Text("Cliente") },
+                        placeholder = { Text("Aperte enter para abrir a lista") },
+                        modifier = Modifier
+                            .keyInputFilter {
+                                if (it.key == Key.Enter) {
+                                    if (clientName != "") {
+                                        clientList = if (clientName[0].toString().matches(regex = "^\\(".toRegex())) {
+                                            clientDBI.getFiltredList(2, clientName)
+                                        } else {
+                                            if (clientName.matches(regex = "^[0-9]+".toRegex())) {
+                                                clientDBI.getFiltredList(3, clientName)
+                                            } else {
+                                                clientDBI.getFiltredList(1, clientName)
+                                            }
+                                        }
+                                        expanded = true
+                                        true
+                                    } else {
+                                        clientList = clientListFull
+                                        expanded = true
+                                        true
+                                    }
+                                } else {
+                                    false
+                                }
+                            },
+                        singleLine = true
+                    )
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        toggle = {
+                            Text(
+                                text = "",
+                                modifier = Modifier.clickable { expanded = true }
+                                    .clickable(onClick = { expanded = true })
+                            )
+                        }
+                    ) {
+                        clientList!!.forEach { client ->
+                            DropdownMenuItem(
+                                onClick = {
+                                    clientId2 = client.id
+                                    name = "CLiente ${client.name} selecionado, ID: $clientId2"
+                                    expanded = false
+                                    clientName = client.name.toString()
+                                    clientDoc = client.idDocNumber2.toString()
+                                    clientTell = client.cellPhone.toString()
+                                }
+                            ) {
+                                Text(text = client.name.toString() + client.cellPhone.toString())
+                            }
+                        }
                     }
-                    (m_Operation as FutronicEnrollment).Enrollment(BiometryFun())
+                    TextField(
+                        value = clientTell,
+                        onValueChange = {clientTell = it},
+                        label = { Text("Nº Celular") },
+                        placeholder = { Text("(XX) XXXXX-XXXX") },
+                        singleLine = true,
+                        modifier = Modifier.offset(0.dp, 100.dp)
+                    )
+                    TextField(
+                        value = clientDoc,
+                        onValueChange = {clientDoc = it},
+                        label = { Text("Nº CPF") },
+                        placeholder = { Text("XXX.XXX.XXX-XX") },
+                        singleLine = true,
+                        modifier = Modifier.offset(0.dp, 200.dp)
+                    )
                 }
-            },modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .offset((-75).dp, 600.dp) )
-            {
-                Text("Cadastrar")
             }
-            Text(name, modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .offset(0.dp, 600.dp))
-            Button(onClick = {
-                try {
-                    m_Operation = FutronicIdentification()
-                    m_Operation.fakeDetection = true
-                    m_Operation.fFDControl = true
-                    m_Operation.fARN = 166
-                    m_Operation.fastMode = false
-                    m_Operation.version = VersionCompatible.ftr_version_current
-                } catch (futronicException: FutronicException){
-                    futronicException.printStackTrace()
+            Text(
+                name, modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .offset(0.dp, 600.dp)
+            )
+            if (abertura){
+
+                Button(
+                    onClick = {
+                        try {
+                            m_Operation = FutronicIdentification()
+                            m_Operation.fakeDetection = true
+                            m_Operation.fFDControl = true
+                            m_Operation.fARN = 166
+                            m_Operation.fastMode = false
+                            m_Operation.version = VersionCompatible.ftr_version_current
+                        } catch (futronicException: FutronicException) {
+                            futronicException.printStackTrace()
+                        }
+                        (m_Operation as FutronicIdentification).GetBaseTemplate(BiometryFun())
+                    }, modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .offset(0.dp, 545.dp)
+                )
+                {
+                    Text("Buscar por biometria")
                 }
-                (m_Operation as FutronicIdentification).GetBaseTemplate(BiometryFun())
-            },modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .offset(75.dp, 543.dp))
-            {
-                Text("Buscar")
+                Button(
+                    onClick = { openCardHallTable(1) }, modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .offset((-75).dp, 650.dp)
+                )
+                {
+                    Text("Abrir Mesa")
+                }
+                Button(
+                    onClick = { openCardHallTable(2) }, modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .offset(75.dp, 615.dp)
+                )
+                {
+                    Text("Abrir Comanda")
+                }
+            } else {
+                Button(
+                    onClick = {
+                        var client = Client()
+                        client.id = clientDBI.getUpdateNextId()
+                        client.name = clientName
+                        client.idDocNumber2 = clientDoc
+                        client.cellPhone2 = clientTell
+                        client.register = CustomDate().toString()
+                        if (clientDBI.add(client)){
+                            name = "Cliente cadastrado com sucesso"
+                            clientId2 = client.id
+                        } else {
+                            name = "Problemas ao cadastrar o cliente"
+                        }
+                    }, modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .offset(0.dp, 500.dp)
+                )
+                {
+                    Text("Cadastrar Cliente")
+                }
+                Button(
+                    onClick = {
+                        if (clientId2 == 0) {
+                            name = "Cadastre/Selecione um cliente"
+                        } else {
+                            try {
+                                m_Operation = FutronicEnrollment()
+                                m_Operation.fakeDetection = true
+                                m_Operation.fFDControl = true
+                                m_Operation.fARN = 166
+                                m_Operation.fastMode = true
+                                (m_Operation as FutronicEnrollment).mIOTControlOff = true
+                                (m_Operation as FutronicEnrollment).maxModels = 4
+                                m_Operation.version = VersionCompatible.ftr_version_current
+                            } catch (futronicException: FutronicException) {
+                                futronicException.printStackTrace()
+                            }
+                            (m_Operation as FutronicEnrollment).Enrollment(BiometryFun())
+                        }
+                    }, modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .offset(0.dp, 600.dp)
+                )
+                {
+                    Text("Cadastrar Biometria")
+                }
             }
         }
 

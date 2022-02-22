@@ -16,7 +16,91 @@ class DBI07 {
 
     var con: Connection? = null
 
+    fun getUpdateNextId(): Int {
+        Class.forName("com.mysql.jdbc.Driver")
+        con = DriverManager.getConnection(banco,"root","1234")
+        var id = 0
+        val stmt = "select client_id from next_id"
+        val stmt2 = "update next_id set client_id = client_id+1"
+        try {
+            con!!.prepareStatement(stmt).use { ps ->
+                con!!.prepareStatement(stmt2).use { ps2 ->
+                    val resultSet = ps.executeQuery()
+                    resultSet.next()
+                    id = resultSet.getInt("client_id")
+                    ps2.execute()
+                }
+                ps.close()
+                return id
+            }
+        } catch (ex: SQLException) {
+            ex.printStackTrace()
+        }
+        return id
+    }
 
+    fun add(client: Client): Boolean {
+        Class.forName("com.mysql.jdbc.Driver")
+        con = DriverManager.getConnection(banco,"root","1234")
+        val stmt =
+            "insert into client(id, name, doc_name, owner_name, type1, type2, gender, occupation, birthday, phone, cell_phone, phone2," +
+                    " cell_phone2, email, send_notifications, state_id, city_id, street_name, street_number, zipcode, neighborhood_id, complement, id_doc_number," +
+                    " id_doc_number2, id_doc_number3, id_doc_number4, id_doc_number5, company_id, notes, locked, coordinates, expiration_day, expiration_month_offset," +
+                    " client_credit_limit, company_credit_limit, value1, value2, value3, value4, register, payments, employee_id, active, external_id) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        try {
+            con!!.prepareStatement(stmt).use { ps ->
+                ps.setInt(1, client.id)
+                ps.setString(2, client.name)
+                ps.setString(3, client.docName)
+                ps.setString(4, client.ownerName)
+                ps.setInt(5, client.type1)
+                ps.setInt(6, client.type2)
+                ps.setInt(7, client.gender)
+                ps.setString(8, client.occupation)
+                ps.setString(9, formatDateAppToDB(client.birthday!!))
+                ps.setString(10, client.phone)
+                ps.setString(11, client.cellPhone)
+                ps.setString(12, client.phone2)
+                ps.setString(13, client.cellPhone2)
+                ps.setString(14, client.email)
+                ps.setInt(15, CustomBoolean(client.isSendNotifications).int)
+                ps.setInt(16, client.getState()!!.id)
+                ps.setInt(17, client.getCity()!!.id)
+                ps.setString(18, client.streetName)
+                ps.setString(19, client.streetNumber)
+                ps.setString(20, client.zipcode)
+                ps.setInt(21, client.getNeighborhood()!!.id)
+                ps.setString(22, client.complement)
+                ps.setString(23, client.idDocNumber)
+                ps.setString(24, client.idDocNumber2)
+                ps.setString(25, client.idDocNumber3)
+                ps.setString(26, client.idDocNumber4)
+                ps.setString(27, client.idDocNumber5)
+                ps.setInt(28, client.getCompany()!!.id)
+                ps.setString(29, client.notes)
+                ps.setInt(30, CustomBoolean(client.isAccount).int)
+                ps.setString(31, client.coordinates)
+                ps.setInt(32, client.expirationDay)
+                ps.setInt(33, client.expirationMonthOffset)
+                ps.setInt(34, client.clientCreditLimit)
+                ps.setInt(35, client.companyCreditLimit)
+                ps.setInt(36, client.standardValue)
+                ps.setInt(37, client.taxes)
+                ps.setInt(38, client.credits)
+                ps.setInt(39, client.value4)
+                ps.setString(40, formatDateAppToDB(client.register!!))
+                ps.setString(41, client.payments)
+                ps.setInt(42, client.getEmployee()!!.id)
+                ps.setInt(43, CustomBoolean(client.isActive).int)
+                ps.setString(44, client.externalId)
+                ps.execute()
+            }
+        } catch (ex: SQLException) {
+            ex.printStackTrace()
+            return false
+        }
+        return true
+    }
     fun getSingle(columnName: String, id: Int): Client? {
         con = DriverManager.getConnection(banco,"root","1234")
         var client: Client? = null
@@ -229,6 +313,15 @@ class DBI07 {
             println(ex.message)
         }
     }
+
+    fun formatDateAppToDB(date: String): String? {
+        if (date == "") {
+            return null
+        }
+        val fields = date.split("/").toTypedArray()
+        return fields[2] + fields[1] + fields[0]
+    }
+
     fun formatDateDBToApp(date: String?): String? {
         if (date == null || date == "") {
             return ""

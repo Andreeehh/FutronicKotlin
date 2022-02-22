@@ -59,7 +59,7 @@ class Client : Comparable<Client?> {
         type2 = 0
         gender = 1
         occupation = ""
-        birthday = ""
+        birthday = "01/01/1950"
         phone = ""
         cellPhone = ""
         phone2 = ""

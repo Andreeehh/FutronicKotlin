@@ -1,3 +1,3 @@
 enum class NavType {
-    HOME, CARD, HALLTABLE
+    HOME, CARD, HALLTABLE, LOGIN, CHECKOUT
 }

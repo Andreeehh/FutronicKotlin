@@ -182,23 +182,6 @@ class CustomDate : Comparable<CustomDate?> {
             } else ""
         }
 
-    /*operator fun compareTo(date2: CustomDate): Int {
-        if (this.toString() == "" && date2.toString() != "") {
-            return 1
-        }
-        if (this.toString() != "" && date2.toString() == "") {
-            return -1
-        }
-        if (this.toString() == "" && date2.toString() == "") {
-            return 0
-        }
-        calendar!![Calendar.SECOND] = 0
-        calendar!![Calendar.MILLISECOND] = 0
-        date2.calendar!![Calendar.SECOND] = 0
-        date2.calendar!![Calendar.MILLISECOND] = 0
-        return calendar!!.compareTo(date2.calendar)
-    }*/
-
     override fun compareTo(date2: CustomDate?): Int {
         if (this.toString() == "" && date2.toString() != "") {
             return 1
